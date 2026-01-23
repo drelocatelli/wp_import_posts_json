@@ -17,8 +17,9 @@ $required_keys = ["title", "permalink", "date", "excerpt", "thumbnail", "content
     </summary>
     <div>
       Certifique-se que seu JSON seja um ARRAY de objetos, onde cada objeto representa uma postagem com as seguintes chaves obrigatórias:
-        <?= implode(', ', $required_keys); ?>
-        <br><strong>Date deverá ser no formato YYYY-MM-DD</strong>
+        <br>
+        <strong>[<?= implode(', ', $required_keys); ?>]</strong>
+        <br><strong>date: deverá ser no formato YYYY-MM-DD</strong>
     </div>
   </details>
 

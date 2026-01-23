@@ -28,7 +28,6 @@ function imp_download_image()
     $upload_dir = wp_upload_dir();
     $import_dir = trailingslashit($upload_dir['basedir']) . "imported/{$year}/{$month}";
     $import_url = trailingslashit($upload_dir['baseurl']) . "imported/{$year}/{$month}";
-
     
     if (!wp_mkdir_p($import_dir)) {
         wp_send_json_error(['message' => 'Não foi possível criar: ' . $import_dir], 500);
