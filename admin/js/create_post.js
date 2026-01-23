@@ -35,7 +35,7 @@ document.addEventListener('FileUploaded', async (e) => {
       detail: { item, index, wpVars: wp_vars, hashValue },
     });
     document.dispatchEvent(evt);
-    await send_log_to_php(`Post importado: ${index} - ${item.title}`, {hash: hashValue, type: 'success'});
+    await send_log_to_php(`Import iniciou: ${index} - ${item.title}`, {hash: hashValue, type: 'started'});
     await wait(ms);
   }
 });
@@ -120,35 +120,49 @@ async function downloadMediaFirst(mediaUrl, wpVars, hashValue, { retries = 4, in
   fd.append('nonce', wpVars.nonce);
   fd.append('media_url', mediaUrl);
 
-  const res = await fetch(wpVars.ajaxUrl, {
-    method: 'POST',
-    credentials: 'same-origin',
-    body: fd,
-  });
+  try {
+    const res = await fetch(wpVars.ajaxUrl, {
+      method: 'POST',
+      credentials: 'same-origin',
+      body: fd,
+    });
 
-  if ((res.status === 502 || res.status === 503) && retries > 0) {
-      console.warn(`Erro ${res.status}. Tentando novamente em 3 segundos... (Restam ${retries})`);
-      await send_log_to_php(`Erro ${res.status}. Tentando novamente em 3 segundos... (Restam ${retries})`, {hash: hashValue, type: 'error_media_download'});
-      await wait(10000); // Espera um pouco antes de tentar de novo
+    // Lógica de Retentativas para erros temporários de servidor (502, 503)
+    if ((res.status === 502 || res.status === 503) && retries > 0) {
+      console.warn(`Erro ${res.status}. Tentando novamente em 10 segundos... (Restam ${retries})`);
+      await wait(10000); 
       return await downloadMediaFirst(mediaUrl, wpVars, hashValue, {retries: retries - 1, index});
     }
 
-  if(!res.ok) {
-    const errorText = `Erro de Servidor ${res.status}: ${res.statusText} ao tentar baixar ${mediaUrl}`;
-    await send_log_to_php(errorText, {hash: hashValue, type: 'error'});
-    throw new Error(`Erro de Servidor: ${res.status} ${res.statusText}`);
-  }
+    // Se o erro for 404 ou outros erros definitivos, ou se acabarem as tentativas
+    if (!res.ok) {
+      const errorText = `Pulando mídia: Erro ${res.status} ao tentar baixar ${mediaUrl}`;
+      console.error(errorText);
+      await send_log_to_php(errorText, {hash: hashValue, type: 'warning_media_skipped'});
+      return null; // Retorna null em vez de travar o script
+    }
 
-  const text = await res.text();
-  let json;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new Error(`Resposta não-JSON: ${text.slice(0, 200)}`);
-  }
+    const text = await res.text();
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      console.error(`Erro no JSON da mídia ${mediaUrl}. Pulando...`);
+      return null; // Retorna null se a resposta for inválida (como o HTML do erro 502)
+    }
 
-  if (!json.success) throw new Error(json.data?.message || 'Falha ao baixar mídia');
-  return json.data; // { attach_id, url, cached }
+    if (!json.success) {
+      console.warn(`Falha no download (sucesso false): ${json.data?.message}. Pulando...`);
+      return null;
+    }
+
+    return json.data; // Retorna { attach_id, url, cached }
+
+  } catch (err) {
+    // Erros de rede (DNS_PROBE_POSSIBLE, timeout, etc)
+    console.error(`Erro de rede ao baixar ${mediaUrl}: ${err.message}. Pulando...`);
+    return null;
+  }
 }
 
 
@@ -160,89 +174,70 @@ async function waitDelay() {
   }
 }
 
-
 async function importPosts({ item, wpVars, index, hashValue }) {
   const importedEl = document.getElementById('imported');
 
-  // Função interna para registrar erro no PHP e lançar exceção
- const reportErrorAndStop = async (message, item) => {
+  const reportErrorAndStop = async (message, item) => {
     console.error(message);
     await send_log_to_php(message, {hash: hashValue, type: 'error'});
-
-    if(item) {
-      await save_failed_item_to_json(item, hashValue);
-    }
-    
+    if(item) { await save_failed_item_to_json(item, hashValue); }
     throw new Error(message);
   };
 
   try {
     const formData = new FormData();
-
     let thumbnailId = null;
 
+    // 1. TRATAMENTO DA THUMBNAIL (IMAGEM DE DESTAQUE)
     if(!document.querySelector('#preview').checked && item.thumbnail) {
       try {
         await waitDelay();
-        const img = await downloadImageFirst(item.thumbnail, wpVars);
-        if (!img || !img.attach_id) throw new Error("ID da imagem não retornado");
-        thumbnailId = img.attach_id;
-        formData.append('thumbnail_id', String(thumbnailId));
+        // Alterado para downloadMediaFirst para aproveitar a sua lógica de retentativas e null
+        const img = await downloadMediaFirst(item.thumbnail, wpVars, hashValue, {index});
+        
+        if (img && img.attach_id) {
+          thumbnailId = img.attach_id;
+          formData.append('thumbnail_id', String(thumbnailId));
+        } else {
+          // Se falhar, apenas loga como aviso e não para o script
+          await send_log_to_php(`Aviso: Post ${index} sem thumbnail (falha no download).`, {hash: hashValue, type: 'warning'});
+        }
       } catch (err) {
-        await reportErrorAndStop(`Falha crítica na Thumbnail (Post ${index}): ${err.message}`);
+        console.warn("Falha não crítica na thumbnail:", err.message);
       }
     }
 
-    // Baixar outros tipos de mídia (PDF, DOCX, etc.) do conteúdo
+    // 2. TRATAMENTO DE MÍDIAS NO CONTEÚDO (PDF, DOCX, IMAGENS INTERNAS)
     const mediaUrls = extractMediaUrlsFromContent(item.content);
     for (let mediaUrl of mediaUrls) {
       try {
         await waitDelay();
-        
         const media = await downloadMediaFirst(mediaUrl, wpVars, hashValue, {index});
         
-        // Se o download falhar ou não retornar URL, para tudo
-        if (!media || !media.url) {
-          throw new Error(`URL de mídia inválida após download: ${mediaUrl}`);
+        // Se o download retornar com sucesso, faz a substituição no HTML
+        if (media && media.url) {
+          item.content = replaceMediaUrls(item.content, mediaUrl, media.url);
+        } else {
+          // Se retornar null, logamos o aviso e o post manterá o link original (ou link quebrado)
+          await send_log_to_php(`Aviso: Mídia pulada no Post ${index}: ${mediaUrl}`, {hash: hashValue, type: 'warning'});
         }
-
-        item.content = replaceMediaUrls(item.content, mediaUrl, media.url);
       } catch (err) {
-        await reportErrorAndStop(`Falha crítica na Mídia (Post ${index}): ${err.message}`);
+        console.warn("Erro ao processar mídia interna, pulando...", err.message);
       }
     }
 
+    // 3. ENVIO DO POST (TEXTO)
     formData.append('action', 'imp_create_post');
     formData.append('nonce', wpVars.nonce);
-
-    const data = {
-      title: item.title,
-      permalink: item.permalink,
-      date: item.date,
-      excerpt: item.excerpt,
-      thumbnail: item.thumbnail,
-      content: item.content,
-    };
-
-    const categoryElement = document.querySelector('#category_slug');
-    if(categoryElement && categoryElement.value.trim() !== '') {
-      data.category_slug = categoryElement.value;
-      formData.append('category_slug', data.category_slug);
-    }
-    
+    // ... restante das appends (title, content, date, etc) ...
     formData.append('status', 'publish');
-    formData.append('title', data.title);
-    formData.append('content', data.content);
-    formData.append('excerpt', data.excerpt);
-    formData.append('date', data.date);
-    formData.append('excerpt', data.excerpt);
+    formData.append('title', item.title);
+    formData.append('content', item.content);
+    formData.append('excerpt', item.excerpt);
+    formData.append('date', item.date);
     formData.append('hash', hashValue);
 
-    console.log('Sending data: ', Object.fromEntries(formData.entries()));
-
-    if(document.querySelector('#preview').checked) {
-      return;
-    }
+    if(document.querySelector('#preview').checked) return;
     
     const res = await fetch(wpVars.ajaxUrl, {
       method: 'POST',
@@ -251,38 +246,152 @@ async function importPosts({ item, wpVars, index, hashValue }) {
     });
 
     const response = await res.json();
-
     if (!response.success) {
-      await reportErrorAndStop(`Erro na resposta do PHP: ${response.data}`);
+      await reportErrorAndStop(`Erro na resposta do PHP: ${response.data}`, item);
     }
 
-    send_log_to_php(`Post importado: ${index} - ${item.title}`, {hash: hashValue, type: 'success'});
-    
-
-    if (!response.success) {
-      console.error('Erro ao importar post:', response.data);
-      alert(`Erro ao importar post: ${response.data}`);
-    }
-
+    // Sucesso final
     const pOk = document.createElement('p');
-    pOk.classList.add('import-element');
-    pOk.classList.add('imported-success');
+    pOk.className = 'import-element imported-success';
     pOk.textContent = `Post importado com sucesso: ${index} - ${item.title}`;
     importedEl.appendChild(pOk);
 
+    await send_log_to_php(`Post importado: ${index} - ${item.title}`, {hash: hashValue, type: 'success'});
+    
     return response;
 
   } catch (err) {
-    console.error('Erro ao importar post:', err);
+    // Aqui só cairá se o erro for na criação do post em si, não na mídia
     const pError = document.createElement('p');
-    pError.classList.add('import-element');
-    pError.classList.add('imported-error');
-    pError.textContent = `Erro ao importar post: ${index} - ${item.title} - ${err.message}`;
+    pError.className = 'import-element imported-error';
+    pError.textContent = `Erro fatal no Post ${index}: ${err.message}`;
     importedEl.appendChild(pError);
-
     throw err;
   }
 }
+
+// async function importPosts({ item, wpVars, index, hashValue }) {
+//   const importedEl = document.getElementById('imported');
+
+//   // Função interna para registrar erro no PHP e lançar exceção
+//  const reportErrorAndStop = async (message, item) => {
+//     console.error(message);
+//     await send_log_to_php(message, {hash: hashValue, type: 'error'});
+
+//     if(item) {
+//       await save_failed_item_to_json(item, hashValue);
+//     }
+    
+//     throw new Error(message);
+//   };
+
+//   try {
+//     const formData = new FormData();
+
+//     let thumbnailId = null;
+
+//     if(!document.querySelector('#preview').checked && item.thumbnail) {
+//       try {
+//         await waitDelay();
+//         const img = await downloadImageFirst(item.thumbnail, wpVars);
+//         if (!img || !img.attach_id) throw new Error("ID da imagem não retornado");
+//         thumbnailId = img.attach_id;
+//         formData.append('thumbnail_id', String(thumbnailId));
+//       } catch (err) {
+//         await reportErrorAndStop(`Falha crítica na Thumbnail (Post ${index}): ${err.message}`);
+//       }
+//     }
+
+//     // Baixar outros tipos de mídia (PDF, DOCX, etc.) do conteúdo
+//     const mediaUrls = extractMediaUrlsFromContent(item.content);
+//     for (let mediaUrl of mediaUrls) {
+//       try {
+//         await waitDelay();
+        
+//         const media = await downloadMediaFirst(mediaUrl, wpVars, hashValue, {index});
+        
+//         // Se o download falhar ou não retornar URL, para tudo
+//         if (!media || !media.url) {
+//           throw new Error(`URL de mídia inválida após download: ${mediaUrl}`);
+//         }
+
+//         item.content = replaceMediaUrls(item.content, mediaUrl, media.url);
+//       } catch (err) {
+//         await reportErrorAndStop(`Falha crítica na Mídia (Post ${index}): ${err.message}`);
+//       }
+//     }
+
+//     formData.append('action', 'imp_create_post');
+//     formData.append('nonce', wpVars.nonce);
+
+//     const data = {
+//       title: item.title,
+//       permalink: item.permalink,
+//       date: item.date,
+//       excerpt: item.excerpt,
+//       thumbnail: item.thumbnail,
+//       content: item.content,
+//     };
+
+//     const categoryElement = document.querySelector('#category_slug');
+//     if(categoryElement && categoryElement.value.trim() !== '') {
+//       data.category_slug = categoryElement.value;
+//       formData.append('category_slug', data.category_slug);
+//     }
+    
+//     formData.append('status', 'publish');
+//     formData.append('title', data.title);
+//     formData.append('content', data.content);
+//     formData.append('excerpt', data.excerpt);
+//     formData.append('date', data.date);
+//     formData.append('excerpt', data.excerpt);
+//     formData.append('hash', hashValue);
+
+//     console.log('Sending data: ', Object.fromEntries(formData.entries()));
+
+//     if(document.querySelector('#preview').checked) {
+//       return;
+//     }
+    
+//     const res = await fetch(wpVars.ajaxUrl, {
+//       method: 'POST',
+//       credentials: 'same-origin',
+//       body: formData,
+//     });
+
+//     const response = await res.json();
+
+//     if (!response.success) {
+//       await reportErrorAndStop(`Erro na resposta do PHP: ${response.data}`);
+//     }
+
+//     send_log_to_php(`Post importado: ${index} - ${item.title}`, {hash: hashValue, type: 'success'});
+    
+
+//     if (!response.success) {
+//       console.error('Erro ao importar post:', response.data);
+//       alert(`Erro ao importar post: ${response.data}`);
+//     }
+
+//     const pOk = document.createElement('p');
+//     pOk.classList.add('import-element');
+//     pOk.classList.add('imported-success');
+//     pOk.textContent = `Post importado com sucesso: ${index} - ${item.title}`;
+//     importedEl.appendChild(pOk);
+
+//     return response;
+
+//   } catch (err) {
+//     console.error('Erro ao importar post:', err);
+//     const pError = document.createElement('p');
+//     pError.classList.add('import-element');
+//     pError.classList.add('imported-error');
+//     pError.textContent = `Erro ao importar post: ${index} - ${item.title} - ${err.message}`;
+//     importedEl.appendChild(pError);
+
+//     throw err;
+//   }
+// }
 
 document.addEventListener('ImportStarted', async (e) => {
   const importedEl = document.getElementById('imported');
