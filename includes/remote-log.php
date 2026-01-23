@@ -14,14 +14,20 @@ function remote_save_log() {
     // Define o caminho absoluto para a pasta logs dentro do seu plugin
     // __DIR__ pega a pasta atual onde este arquivo PHP está.
     $log_dir = plugin_dir_path(__DIR__) . '/logs';
-    $log_file = $log_dir . '/importer.log';
+    $log_file = $log_dir . '/importer';
     
+    if(isset($_POST['log_type']) && !empty($_POST['log_type'])) {
+        $log_type = sanitize_file_name($_POST['log_type']);
+        $log_file .= '_' . $log_type;
+    }
+
     if(isset($_POST['hash']) && !empty($_POST['hash'])) {
         $hash = sanitize_file_name($_POST['hash']);
-        $log_file = $log_dir . '/importer_' . $_POST['hash'] . '.log';
+        $log_file .= '_' . $hash;
     }
-    
 
+    $log_file .= '.log';
+    
     // 1. Se a pasta logs não existir, tenta criar com permissão total
     if (!file_exists($log_dir)) {
         mkdir($log_dir, 0755, true);

@@ -27,7 +27,7 @@ document.addEventListener('FileUploaded', async (e) => {
 
     if (!item || typeof item !== 'object') {
       console.warn('Item inválido no índice', index, item);
-      await send_log_to_php(`Item inválido no índice ${index}`, hashValue);
+      await send_log_to_php(`Item inválido no índice ${index}`, {hash: hashValue, type: 'error'});
       continue;
     }
     // send event
@@ -35,7 +35,7 @@ document.addEventListener('FileUploaded', async (e) => {
       detail: { item, index, wpVars: wp_vars, hashValue },
     });
     document.dispatchEvent(evt);
-    await send_log_to_php(`Post importado: ${index} - ${item.title}`, hashValue);
+    await send_log_to_php(`Post importado: ${index} - ${item.title}`, {hash: hashValue, type: 'success'});
     await wait(ms);
   }
 });
@@ -126,6 +126,12 @@ async function downloadMediaFirst(mediaUrl, wpVars) {
     body: fd,
   });
 
+  if(!res.ok) {
+    const errorText = `Erro de Servidor ${res.status}: ${res.statusText} ao tentar baixar ${mediaUrl}`;
+    await send_log_to_php(errorText, {hash: hashValue, type: 'error'});
+    throw new Error(`Erro de Servidor: ${res.status} ${res.statusText}`);
+  }
+
   const text = await res.text();
   let json;
   try {
@@ -145,7 +151,7 @@ async function importPosts({ item, wpVars, index, hashValue }) {
   // Função interna para registrar erro no PHP e lançar exceção
  const reportErrorAndStop = async (message, hashValue = null) => {
     console.error(message);
-    await send_log_to_php(message, hashValue);
+    await send_log_to_php(message, {hash: hashValue, type: 'error'});
 
     // Lança o erro para parar o loop/execução da função
     throw new Error(message);
@@ -235,7 +241,7 @@ async function importPosts({ item, wpVars, index, hashValue }) {
       await reportErrorAndStop(`Erro na resposta do PHP: ${response.data}`);
     }
 
-    send_log_to_php(`Post importado: ${index} - ${item.title}`, hashValue);
+    send_log_to_php(`Post importado: ${index} - ${item.title}`, {hash: hashValue, type: 'success'});
     
 
     if (!response.success) {

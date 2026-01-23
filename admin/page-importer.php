@@ -112,12 +112,14 @@ function checkIsJson(file) {
 }
 
 // (Opcional) log remoto
-async function send_log_to_php(text, hash = null) {
+async function send_log_to_php(text, data) {
+  const {type, hash} = data;
   const cleanMessage = JSON.stringify(text);
   
   const logData = new FormData();
   logData.append('action', 'remote_save_log');
   logData.append('message', String(cleanMessage).slice(0, 5000));
+  logData.append('log_type', type);
   logData.append('hash', hash);
   
   console.log('Salvando logs...')
