@@ -114,7 +114,7 @@ function replaceMediaUrls(content, oldUrl, newUrl) {
   return $tempDiv.html();
 }
 
-async function downloadMediaFirst(mediaUrl, wpVars, hashValue) {
+async function downloadMediaFirst(mediaUrl, wpVars, hashValue, { retries = 4, index = 0 } = {}) {
   const fd = new FormData();
   fd.append('action', 'imp_download_media');
   fd.append('nonce', wpVars.nonce);
@@ -130,7 +130,7 @@ async function downloadMediaFirst(mediaUrl, wpVars, hashValue) {
       console.warn(`Erro ${res.status}. Tentando novamente em 3 segundos... (Restam ${retries})`);
       await send_log_to_php(`Erro ${res.status}. Tentando novamente em 3 segundos... (Restam ${retries})`, {hash: hashValue, type: 'error_media_download'});
       await wait(10000); // Espera um pouco antes de tentar de novo
-      return await downloadMediaFirst(mediaUrl, wpVars, hashValue, retries - 1);
+      return await downloadMediaFirst(mediaUrl, wpVars, hashValue, {retries: retries - 1, index});
     }
 
   if(!res.ok) {
@@ -152,15 +152,27 @@ async function downloadMediaFirst(mediaUrl, wpVars, hashValue) {
 }
 
 
+async function waitDelay() {
+  const mediaDelayEl = document.getElementById('msMidia');
+  if(mediaDelayEl && mediaDelayEl.value.trim() !== '') {
+    const delayTime = Number(mediaDelayEl.value);
+    if(!isNaN(delayTime) && delayTime > 0) await wait(delayTime);
+  }
+}
+
+
 async function importPosts({ item, wpVars, index, hashValue }) {
   const importedEl = document.getElementById('imported');
 
   // Função interna para registrar erro no PHP e lançar exceção
- const reportErrorAndStop = async (message) => {
+ const reportErrorAndStop = async (message, item) => {
     console.error(message);
     await send_log_to_php(message, {hash: hashValue, type: 'error'});
 
-    // Lança o erro para parar o loop/execução da função
+    if(item) {
+      await save_failed_item_to_json(item, hashValue);
+    }
+    
     throw new Error(message);
   };
 
@@ -171,7 +183,7 @@ async function importPosts({ item, wpVars, index, hashValue }) {
 
     if(!document.querySelector('#preview').checked && item.thumbnail) {
       try {
-        await wait(delayTime);
+        await waitDelay();
         const img = await downloadImageFirst(item.thumbnail, wpVars);
         if (!img || !img.attach_id) throw new Error("ID da imagem não retornado");
         thumbnailId = img.attach_id;
@@ -185,13 +197,9 @@ async function importPosts({ item, wpVars, index, hashValue }) {
     const mediaUrls = extractMediaUrlsFromContent(item.content);
     for (let mediaUrl of mediaUrls) {
       try {
-        const mediaDelayEl = document.getElementById('msMidia');
-        if(mediaDelayEl && mediaDelayEl.value.trim() !== '') {
-          const delayTime = Number(mediaDelayEl.value);
-          if(!isNaN(delayTime) && delayTime > 0) await wait(delayTime);
-        }
+        await waitDelay();
         
-        const media = await downloadMediaFirst(mediaUrl, wpVars, hashValue);
+        const media = await downloadMediaFirst(mediaUrl, wpVars, hashValue, {index});
         
         // Se o download falhar ou não retornar URL, para tudo
         if (!media || !media.url) {

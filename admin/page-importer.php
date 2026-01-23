@@ -111,6 +111,23 @@ function checkIsJson(file) {
   return true;
 }
 
+async function save_failed_item_to_json(item, hashValue) {
+  const formData = new FormData();
+  formData.append('action', 'remote_save_failed_item');
+  formData.append('hash', hashValue);
+  formData.append('item_json', JSON.stringify(item));
+
+  try {
+    await fetch(wp_vars.ajaxUrl, {
+      method: 'POST',
+      body: formData
+    });
+    console.log("Item salvo no arquivo de recuperação JSON.");
+  } catch (err) {
+    console.error("Erro ao salvar item no JSON:", err);
+  }
+}
+
 async function send_log_to_php(text, data = {}) {
   const { type = 'info', hash = '' } = data || {};
 
