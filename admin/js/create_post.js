@@ -27,7 +27,7 @@ document.addEventListener('FileUploaded', async (e) => {
 
     if (!item || typeof item !== 'object') {
       console.warn('Item inválido no índice', index, item);
-      // await send_log_to_php(wp_vars, `Item inválido no índice ${index}`);
+      await send_log_to_php(`Item inválido no índice ${index}`, hashValue);
       continue;
     }
     // send event
@@ -35,17 +35,10 @@ document.addEventListener('FileUploaded', async (e) => {
       detail: { item, index, wpVars: wp_vars, hashValue },
     });
     document.dispatchEvent(evt);
-    // await send_log_to_php(wp_vars, `Post importado: ${index} - ${item.title}`);
+    await send_log_to_php(`Post importado: ${index} - ${item.title}`, hashValue);
     await wait(ms);
   }
 });
-
-async function send_log_to_php(wp_vars, text) {
-  const logData = new FormData();
-  logData.append('action', 'remote_save_log');
-  logData.append('message', String(text).slice(0, 5000));
-  await fetch(wp_vars.ajaxUrl, { method: 'POST', body: logData });
-}
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -149,36 +142,51 @@ async function downloadMediaFirst(mediaUrl, wpVars) {
 async function importPosts({ item, wpVars, index, hashValue }) {
   const importedEl = document.getElementById('imported');
 
+  // Função interna para registrar erro no PHP e lançar exceção
+ const reportErrorAndStop = async (message, hashValue = null) => {
+    console.error(message);
+    await send_log_to_php(message, hashValue);
+
+    // Lança o erro para parar o loop/execução da função
+    throw new Error(message);
+  };
+
   try {
     const formData = new FormData();
 
     let thumbnailId = null;
 
     if(!document.querySelector('#preview').checked && item.thumbnail) {
-      const img = await downloadImageFirst(item.thumbnail, wpVars);
-      thumbnailId = img.attach_id;
-      formData.append('thumbnail_id', String(thumbnailId));
+      try {
+        const img = await downloadImageFirst(item.thumbnail, wpVars);
+        if (!img || !img.attach_id) throw new Error("ID da imagem não retornado");
+        thumbnailId = img.attach_id;
+        formData.append('thumbnail_id', String(thumbnailId));
+      } catch (err) {
+        await reportErrorAndStop(`Falha crítica na Thumbnail (Post ${index}): ${err.message}`);
+      }
     }
 
     // Baixar outros tipos de mídia (PDF, DOCX, etc.) do conteúdo
-    const mediaUrls = extractMediaUrlsFromContent(item.content); // Função para extrair URLs
-
+    const mediaUrls = extractMediaUrlsFromContent(item.content);
     for (let mediaUrl of mediaUrls) {
       try {
-        console.log(`Baixando mídia para o post ${index}: ${mediaUrl}`);
         const mediaDelayEl = document.getElementById('msMidia');
         if(mediaDelayEl && mediaDelayEl.value.trim() !== '') {
           const delayTime = Number(mediaDelayEl.value);
-          if(!isNaN(delayTime) && delayTime > 0) {
-            await wait(mediaDelayEl.value);
-          }
+          if(!isNaN(delayTime) && delayTime > 0) await wait(delayTime);
         }
         
-        const media = await downloadMediaFirst(mediaUrl, wpVars); // Baixa documentos e outros tipos de mídia
-        item.content = replaceMediaUrls(item.content, mediaUrl, media.url);
+        const media = await downloadMediaFirst(mediaUrl, wpVars);
+        
+        // Se o download falhar ou não retornar URL, para tudo
+        if (!media || !media.url) {
+          throw new Error(`URL de mídia inválida após download: ${mediaUrl}`);
+        }
 
+        item.content = replaceMediaUrls(item.content, mediaUrl, media.url);
       } catch (err) {
-        console.error(`Erro ao baixar mídia para o post ${index}: ${err.message}`);
+        await reportErrorAndStop(`Falha crítica na Mídia (Post ${index}): ${err.message}`);
       }
     }
 
@@ -224,6 +232,13 @@ async function importPosts({ item, wpVars, index, hashValue }) {
     const response = await res.json();
 
     if (!response.success) {
+      await reportErrorAndStop(`Erro na resposta do PHP: ${response.data}`);
+    }
+
+    send_log_to_php(`Post importado: ${index} - ${item.title}`, hashValue);
+    
+
+    if (!response.success) {
       console.error('Erro ao importar post:', response.data);
       alert(`Erro ao importar post: ${response.data}`);
     }
@@ -243,6 +258,8 @@ async function importPosts({ item, wpVars, index, hashValue }) {
     pError.classList.add('imported-error');
     pError.textContent = `Erro ao importar post: ${index} - ${item.title} - ${err.message}`;
     importedEl.appendChild(pError);
+
+    throw err;
   }
 }
 

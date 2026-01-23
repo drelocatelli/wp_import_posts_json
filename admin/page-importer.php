@@ -65,10 +65,6 @@ $required_keys = ["title", "permalink", "date", "excerpt", "thumbnail", "content
     <div id="imported"></div>
 </div>
 
-// Source - https://stackoverflow.com/a
-// Posted by Kevin Amiranoff, modified by community. See post 'Timeline' for change history
-// Retrieved 2026-01-23, License - CC BY-SA 4.0
-
 <script src="<?= plugin_dir_url(dirname(__FILE__)) . 'admin/js/jquery.min.js?cb=' . time(); ?>"></script>
 
 <script >
@@ -116,11 +112,16 @@ function checkIsJson(file) {
 }
 
 // (Opcional) log remoto
-function send_log_to_php(text) {
+async function send_log_to_php(text, hash = null) {
+  const cleanMessage = JSON.stringify(text);
+  
   const logData = new FormData();
   logData.append('action', 'remote_save_log');
-  logData.append('message', String(text).slice(0, 5000));
-  fetch(wp_vars.ajaxUrl, { method: 'POST', body: logData });
+  logData.append('message', String(cleanMessage).slice(0, 5000));
+  logData.append('hash', hash);
+  
+  console.log('Salvando logs...')
+  await fetch(wp_vars.ajaxUrl, { method: 'POST', body: logData });
 }
 
 form.addEventListener('submit', function(e) {
