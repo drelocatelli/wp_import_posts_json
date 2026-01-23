@@ -21,6 +21,21 @@ function imp_get_or_create_category($slug, $name = '') {
   return (int) $created['term_id'];
 }
 
+function prepare_category($slug) {
+  $slug = sanitize_title($slug);
+  $imported_id = imp_get_or_create_category(
+    $slug,
+    ucwords(str_replace('-', ' ', $slug))
+  );
+
+  if (is_wp_error($imported_id)) {
+    error_log('Erro ao criar categoria: ' . $imported_id->get_error_message());
+    return;
+  }
+
+  return (int) $imported_id;
+}
+
 
 add_action('wp_ajax_imp_create_post', function () {
   check_ajax_referer('imp_handle_json_upload', 'nonce');
@@ -34,17 +49,16 @@ add_action('wp_ajax_imp_create_post', function () {
   $status  = sanitize_key($_POST['status'] ?? 'draft');
 
   $cat_ids = [];
-  $slug = sanitize_title($_POST['category_slug'] ?? 'imp');
-    $imported_id = imp_get_or_create_category(
-    $slug,
-    ucwords(str_replace('-', ' ', $slug))
-  );
+  $default = prepare_category('imp');
+  if ($default) $cat_ids[] = $default;
 
-  if (!is_wp_error($imported_id)) {
-    $cat_ids[] = (int) $imported_id;
-  } else {
-    error_log('Erro ao criar categoria: ' . $imported_id->get_error_message());
+  if (isset($_POST['category_slug']) && !empty($_POST['category_slug'])) {
+    $extra = prepare_category($_POST['category_slug']);
+    if ($extra) $cat_ids[] = $extra;
   }
+
+  // remove duplicadas e zeros
+  $cat_ids = array_values(array_unique(array_filter(array_map('intval', $cat_ids))));
 
   $post_id = wp_insert_post([
     'post_title'   => $title,

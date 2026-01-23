@@ -89,8 +89,13 @@ async function importPosts({ item, wpVars, index }) {
       excerpt: item.excerpt,
       thumbnail: item.thumbnail,
       content: item.content,
-      category_slug: 'imp',
     };
+
+    const categoryElement = document.querySelector('#category_slug');
+    if(categoryElement.value.trim() !== '') {
+      data.category_slug = categoryElement.value;
+      formData.append('category_slug', data.category_slug);
+    }
     
     formData.append('status', 'publish');
     formData.append('title', data.title);
@@ -98,7 +103,6 @@ async function importPosts({ item, wpVars, index }) {
     formData.append('excerpt', data.excerpt);
     formData.append('date', data.date);
     formData.append('excerpt', data.excerpt);
-    formData.append('category_slug', data.category_slug);
 
     console.log(Object.fromEntries(formData.entries()));
 

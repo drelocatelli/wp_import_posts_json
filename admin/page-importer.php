@@ -24,6 +24,10 @@ $required_keys = ["title", "permalink", "date", "excerpt", "thumbnail", "content
         <div>
             <input type="file" id="fileInput" accept="application/json,.json" class="wp-core-ui" required>
             <div>
+              <label for="category_slug">Nome da categoria:</label>
+              <input type="text" id="category_slug" placeholder="Nome da categoria para os posts importados" class="wp-core-ui" value="" style="width:200px; margin-left:12px; margin-top: 10px; margin-bottom: 10px;">
+            </div>
+            <div>
               <label for="ms">Delay de importação (em ms):</label>
               <input type="number" id="ms" placeholder="Delay de importação entre posts (ms)" class="wp-core-ui" value="2000" style="width:150px; margin-left:12px; margin-top: 10px; margin-bottom: 10px;" required>
             </div>
