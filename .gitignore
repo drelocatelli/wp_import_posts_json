@@ -1,0 +1,6 @@
+storage/*
+logs/*
+!logs/.donotremove
+!storage/.donotremove
+*.log
+*.tmp
