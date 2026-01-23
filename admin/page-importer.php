@@ -173,7 +173,7 @@ form.addEventListener('submit', function(e) {
     console.log('AJAX RAW (first 500):', raw.slice(0, 500));
 
     if (xhr.status !== 200) {
-      result.textContent = 'Erro do servidor (' + xhr.status + '). Veja console/debug.log.';
+      result.textContent = 'Erro do servidor (' + xhr.status + '). Veja console/debug.log, cheque o README.md';
       send_log_to_php('UPLOAD STATUS=' + xhr.status + ' RAW=' + raw.slice(0, 500));
       return;
     }
@@ -182,7 +182,7 @@ form.addEventListener('submit', function(e) {
     try {
       data = JSON.parse(raw);
     } catch (err) {
-      result.textContent = 'Resposta inválida (não JSON). Veja console/debug.log.';
+      result.textContent = 'Resposta inválida (não JSON). Veja console/debug.log, cheque o README.md';
       send_log_to_php('NON_JSON_RESPONSE: ' + raw.slice(0, 500));
       return;
     }
