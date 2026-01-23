@@ -149,7 +149,7 @@ async function importPosts({ item, wpVars, index, hashValue }) {
   const importedEl = document.getElementById('imported');
 
   // Função interna para registrar erro no PHP e lançar exceção
- const reportErrorAndStop = async (message, hashValue = null) => {
+ const reportErrorAndStop = async (message) => {
     console.error(message);
     await send_log_to_php(message, {hash: hashValue, type: 'error'});
 
