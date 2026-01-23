@@ -67,12 +67,20 @@ add_action('wp_ajax_imp_create_post', function () {
   $cat_ids = [];
   $default = prepare_category('imp');
   if ($default) $cat_ids[] = $default;
+
+  // hash
   
+  if (isset($_POST['hash']) && !empty($_POST['hash'])) {
+    $hash_param = 'imp_'.sanitize_text_field($_POST['hash']);
+    $hash_cat = prepare_category($hash_param);
+    if ($hash_cat) $cat_ids[] = $hash_cat;
+  }
 
   if (isset($_POST['category_slug']) && !empty($_POST['category_slug'])) {
     $extra = prepare_category($_POST['category_slug']);
     if ($extra) $cat_ids[] = $extra;
   }
+  
 
   // remove duplicadas e zeros
   $cat_ids = array_values(array_unique(array_filter(array_map('intval', $cat_ids))));

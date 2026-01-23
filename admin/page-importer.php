@@ -32,7 +32,7 @@ $required_keys = ["title", "permalink", "date", "excerpt", "thumbnail", "content
             </div>
             <div>
               <label for="ms">Delay de importação (em ms):</label>
-              <input type="number" id="ms" placeholder="Delay de importação entre posts (ms)" class="wp-core-ui" value="10000" style="width:150px; margin-left:12px; margin-top: 10px; margin-bottom: 10px;" required>
+              <input type="number" id="ms" placeholder="Delay de importação entre posts (ms)" class="wp-core-ui" value="5000" style="width:150px; margin-left:12px; margin-top: 10px; margin-bottom: 10px;" required>
             </div>
             <div>
               <label for="preview">Prévia modo Dev (console.log)</label>
@@ -53,6 +53,9 @@ $required_keys = ["title", "permalink", "date", "excerpt", "thumbnail", "content
         <div id="result" style="margin-top:12px;"></div>
     </form>
 
+    <div id="hash" class="imported">
+    </div>
+
     <div id="fileLog">
 
     </div>
@@ -60,7 +63,13 @@ $required_keys = ["title", "permalink", "date", "excerpt", "thumbnail", "content
     <div id="imported"></div>
 </div>
 
-<script>
+// Source - https://stackoverflow.com/a
+// Posted by Kevin Amiranoff, modified by community. See post 'Timeline' for change history
+// Retrieved 2026-01-23, License - CC BY-SA 4.0
+
+<script src="<?= plugin_dir_url(dirname(__FILE__)) . 'admin/js/jquery.min.js?cb=' . time(); ?>"></script>
+
+<script >
 window.wp_vars = {
   ajaxUrl: <?php echo json_encode(admin_url('admin-ajax.php')); ?>,
   nonce: <?php echo json_encode(wp_create_nonce('imp_handle_json_upload')); ?>,
@@ -80,7 +89,7 @@ async function loadJsonFile() {
 
     const newData = await data.clone().json();
 
-    const evt = new CustomEvent('Imported', {
+    const evt = new CustomEvent('FileUploaded', {
         detail: { 
           response:  newData,
           wp_vars: window.wp_vars,
@@ -182,4 +191,4 @@ form.addEventListener('submit', function(e) {
 });
 </script>
 
-<script src="<?php echo plugins_url('js/readInfo.js', __FILE__); ?>?cb=<?= time(); ?>"></script>
+<script src="<?php echo plugins_url('js/create_post.js', __FILE__); ?>?cb=<?= time(); ?>"></script>
