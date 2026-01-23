@@ -1,0 +1,54 @@
+ input {
+    box-shadow: 0 0 0 transparent;
+    border-radius: 4px;
+    border: 1px solid #8c8f94;
+    background-color: #fff;
+    color: #2c3338;
+}
+
+#progress-wrapper {
+    margin-top: 1rem;
+}
+
+#progressBar {
+    width:0%; 
+    background:#4caf50;
+    border-radius: 10px;
+    color:#fff;
+    padding: 1rem;
+    visibility: visible;
+    opacity: 1;
+    transition: opacity .3s ease-in-out;
+}
+
+#progressBar.hide {
+    opacity: 0;
+}
+
+.import-element {
+    margin:1px 0;
+    display: block;
+}
+
+.imported-started {
+    padding: 1rem;
+    background-color: #99cdf7;
+    color: #fff;
+}
+.imported {
+    max-height: 500px;
+    overflow-y: auto;
+    margin-top: 1rem;
+}
+
+.imported-success {
+    padding: 1rem;
+    background-color: #4caf50;
+    color: #000;
+}
+
+.imported-error {
+    background-color: #f44336;
+    padding: 1rem;
+    color: #000;
+}
