@@ -126,6 +126,13 @@ async function downloadMediaFirst(mediaUrl, wpVars, hashValue) {
     body: fd,
   });
 
+  if ((res.status === 502 || res.status === 503) && retries > 0) {
+      console.warn(`Erro ${res.status}. Tentando novamente em 3 segundos... (Restam ${retries})`);
+      await send_log_to_php(`Erro ${res.status}. Tentando novamente em 3 segundos... (Restam ${retries})`, {hash: hashValue, type: 'error_media_download'});
+      await wait(10000); // Espera um pouco antes de tentar de novo
+      return await downloadMediaFirst(mediaUrl, wpVars, hashValue, retries - 1);
+    }
+
   if(!res.ok) {
     const errorText = `Erro de Servidor ${res.status}: ${res.statusText} ao tentar baixar ${mediaUrl}`;
     await send_log_to_php(errorText, {hash: hashValue, type: 'error'});
