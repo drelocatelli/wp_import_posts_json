@@ -35,10 +35,12 @@ $required_keys = ["title", "permalink", "date", "excerpt", "thumbnail", "content
               <input type="number" id="ms" placeholder="Delay de importação entre posts (ms)" class="wp-core-ui" value="5000" style="width:150px; margin-left:12px; margin-top: 10px; margin-bottom: 10px;" required>
             </div>
             <div>
+              <label for="msMidia">Delay de download de mídia (em ms):</label>
+              <input type="number" id="msMidia" placeholder="Delay de download de mídia entre posts (ms)" class="wp-core-ui" value="5000" style="width:150px; margin-left:12px; margin-top: 10px; margin-bottom: 10px;" required>
+            </div>
+            <div>
               <label for="preview">Prévia modo Dev (console.log)</label>
               <input type="checkbox" id="preview" class="wp-core-ui" style="margin-left:12px; margin-top: 10px; margin-bottom: 10px;">
-              <!-- <label for="msMidia">Delay de download de mídia (em ms):</label>
-              <input type="number" id="msMidia" placeholder="Delay de download de mídia entre posts (ms)" class="wp-core-ui" value="2000" style="width:150px; margin-left:12px; margin-top: 10px; margin-bottom: 10px;" required> -->
             </div>
             <button type="submit" class="wp-core-ui button button-primary">Fazer upload</button>
         </div>

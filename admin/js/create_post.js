@@ -166,6 +166,14 @@ async function importPosts({ item, wpVars, index, hashValue }) {
     for (let mediaUrl of mediaUrls) {
       try {
         console.log(`Baixando mídia para o post ${index}: ${mediaUrl}`);
+        const mediaDelayEl = document.getElementById('msMidia');
+        if(mediaDelayEl && mediaDelayEl.value.trim() !== '') {
+          const delayTime = Number(mediaDelayEl.value);
+          if(!isNaN(delayTime) && delayTime > 0) {
+            await wait(mediaDelayEl.value);
+          }
+        }
+        
         const media = await downloadMediaFirst(mediaUrl, wpVars); // Baixa documentos e outros tipos de mídia
         item.content = replaceMediaUrls(item.content, mediaUrl, media.url);
 
