@@ -111,10 +111,10 @@ function checkIsJson(file) {
   return true;
 }
 
-// (Opcional) log remoto
-async function send_log_to_php(text, data) {
-  const {type, hash} = data;
-  const cleanMessage = JSON.stringify(text);
+async function send_log_to_php(text, data = {}) {
+  const { type = 'info', hash = '' } = data || {};
+
+  const cleanMessage = typeof text === 'object' ? JSON.stringify(text) : text;
   
   const logData = new FormData();
   logData.append('action', 'remote_save_log');
@@ -122,8 +122,20 @@ async function send_log_to_php(text, data) {
   logData.append('log_type', type);
   logData.append('hash', hash);
   
-  console.log('Salvando logs...')
-  await fetch(wp_vars.ajaxUrl, { method: 'POST', body: logData });
+  console.log(`Salvando log (${type})...`);
+
+  try {
+    const res = await fetch(wp_vars.ajaxUrl, { 
+      method: 'POST', 
+      body: logData 
+    });
+    
+    if (!res.ok) {
+        console.warn(`Servidor respondeu com erro ${res.status} ao tentar salvar o log.`);
+    }
+  } catch (err) {
+    console.error('Falha de conexão ao tentar salvar log no PHP:', err);
+  }
 }
 
 form.addEventListener('submit', function(e) {

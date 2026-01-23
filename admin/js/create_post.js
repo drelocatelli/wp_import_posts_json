@@ -114,7 +114,7 @@ function replaceMediaUrls(content, oldUrl, newUrl) {
   return $tempDiv.html();
 }
 
-async function downloadMediaFirst(mediaUrl, wpVars) {
+async function downloadMediaFirst(mediaUrl, wpVars, hashValue) {
   const fd = new FormData();
   fd.append('action', 'imp_download_media');
   fd.append('nonce', wpVars.nonce);
@@ -164,6 +164,7 @@ async function importPosts({ item, wpVars, index, hashValue }) {
 
     if(!document.querySelector('#preview').checked && item.thumbnail) {
       try {
+        await wait(delayTime);
         const img = await downloadImageFirst(item.thumbnail, wpVars);
         if (!img || !img.attach_id) throw new Error("ID da imagem não retornado");
         thumbnailId = img.attach_id;
@@ -183,7 +184,7 @@ async function importPosts({ item, wpVars, index, hashValue }) {
           if(!isNaN(delayTime) && delayTime > 0) await wait(delayTime);
         }
         
-        const media = await downloadMediaFirst(mediaUrl, wpVars);
+        const media = await downloadMediaFirst(mediaUrl, wpVars, hashValue);
         
         // Se o download falhar ou não retornar URL, para tudo
         if (!media || !media.url) {
@@ -227,7 +228,6 @@ async function importPosts({ item, wpVars, index, hashValue }) {
     if(document.querySelector('#preview').checked) {
       return;
     }
-
     
     const res = await fetch(wpVars.ajaxUrl, {
       method: 'POST',
