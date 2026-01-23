@@ -36,6 +36,22 @@ function prepare_category($slug) {
   return (int) $imported_id;
 }
 
+function imp_prepare_post_date($date) {
+  if (!$date) return null;
+
+  // aceita YYYY-MM-DD
+  if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+    $date .= ' 00:00:00';
+  }
+
+  // valida formato final
+  if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $date)) {
+    return null;
+  }
+
+  return $date;
+}
+
 
 add_action('wp_ajax_imp_create_post', function () {
   check_ajax_referer('imp_handle_json_upload', 'nonce');
@@ -51,6 +67,7 @@ add_action('wp_ajax_imp_create_post', function () {
   $cat_ids = [];
   $default = prepare_category('imp');
   if ($default) $cat_ids[] = $default;
+  
 
   if (isset($_POST['category_slug']) && !empty($_POST['category_slug'])) {
     $extra = prepare_category($_POST['category_slug']);
@@ -60,12 +77,18 @@ add_action('wp_ajax_imp_create_post', function () {
   // remove duplicadas e zeros
   $cat_ids = array_values(array_unique(array_filter(array_map('intval', $cat_ids))));
 
+  $raw_date = $_POST['date'] ?? '';
+  $post_date = imp_prepare_post_date($raw_date);
+
   $post_id = wp_insert_post([
     'post_title'   => $title,
     'post_content' => $content,
     'post_status'  => $status,
     'post_type'    => 'post',
-    'post_category' => $cat_ids
+    'post_category' => $cat_ids,
+    'post_date'    => $post_date,
+    'post_date_gmt' => get_gmt_from_date($post_date),
+    'edit_date' => true
   ], true);
 
   if (is_wp_error($post_id)) {

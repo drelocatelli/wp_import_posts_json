@@ -15,9 +15,11 @@ $required_keys = ["title", "permalink", "date", "excerpt", "thumbnail", "content
     <summary>
         <h3 style="display: inline-block;">Instruções de importação</h3>
     </summary>
-    Certifique-se que seu JSON seja um ARRAY de objetos, onde cada objeto representa uma postagem com as seguintes chaves obrigatórias:
-    <br>
-    <?= implode(', ', $required_keys); ?>
+    <div>
+      Certifique-se que seu JSON seja um ARRAY de objetos, onde cada objeto representa uma postagem com as seguintes chaves obrigatórias:
+        <?= implode(', ', $required_keys); ?>
+        <br><strong>Date deverá ser no formato YYYY-MM-DD</strong>
+    </div>
   </details>
 
     <form id="uploadJson">
@@ -29,10 +31,10 @@ $required_keys = ["title", "permalink", "date", "excerpt", "thumbnail", "content
             </div>
             <div>
               <label for="ms">Delay de importação (em ms):</label>
-              <input type="number" id="ms" placeholder="Delay de importação entre posts (ms)" class="wp-core-ui" value="2000" style="width:150px; margin-left:12px; margin-top: 10px; margin-bottom: 10px;" required>
+              <input type="number" id="ms" placeholder="Delay de importação entre posts (ms)" class="wp-core-ui" value="10000" style="width:150px; margin-left:12px; margin-top: 10px; margin-bottom: 10px;" required>
             </div>
             <div>
-              <label for="preview">Prévia</label>
+              <label for="preview">Prévia modo Dev (console.log)</label>
               <input type="checkbox" id="preview" class="wp-core-ui" style="margin-left:12px; margin-top: 10px; margin-bottom: 10px;">
               <!-- <label for="msMidia">Delay de download de mídia (em ms):</label>
               <input type="number" id="msMidia" placeholder="Delay de download de mídia entre posts (ms)" class="wp-core-ui" value="2000" style="width:150px; margin-left:12px; margin-top: 10px; margin-bottom: 10px;" required> -->

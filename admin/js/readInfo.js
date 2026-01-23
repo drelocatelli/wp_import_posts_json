@@ -64,7 +64,6 @@ async function downloadImageFirst(thumbnailUrl, wpVars) {
   return json.data; // { attach_id, url, cached }
 }
 
-
 async function importPosts({ item, wpVars, index }) {
   const importedEl = document.getElementById('imported');
 
