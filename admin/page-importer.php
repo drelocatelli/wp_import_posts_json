@@ -1,9 +1,28 @@
-<?php
-if (!defined('ABSPATH')) exit;
+<script>
 
-$required_keys = ["title", "permalink", "date", "excerpt", "thumbnail", "content"];
+function handleToggle(event) {
+  const tab = event.target;
+  const url = new URL(window.location.href);
+  const searchParams = url.searchParams; 
+
+  if (tab.open) {
+    searchParams.set('edit_categories', 'true');
+  } else {
+    searchParams.delete('edit_categories');
+  }
+
+  window.history.pushState({}, '', url.toString());
+}
+</script>
+
+<?php
+    if (! defined('ABSPATH')) {
+    exit;
+    }
+
+    $required_keys = ["title", "permalink", "date", "excerpt", "thumbnail", "content"];
 ?>
-<link rel="stylesheet" href="<?= plugin_dir_url(dirname(__FILE__)) . 'styles/style.css?cb=' . time(); ?>">
+<link rel="stylesheet" href="<?php echo plugin_dir_url(dirname(__FILE__)) . 'styles/style.css?cb=' . time(); ?>">
 
 <div class="wrap">
     <h1>Importador de postagens</h1>
@@ -18,7 +37,7 @@ $required_keys = ["title", "permalink", "date", "excerpt", "thumbnail", "content
     <div>
       Certifique-se que seu JSON seja um ARRAY de objetos, onde cada objeto representa uma postagem com as seguintes chaves obrigatórias:
         <br>
-        <strong>[<?= implode(', ', $required_keys); ?>]</strong>
+        <strong>[<?php echo implode(', ', $required_keys); ?>]</strong>
         <br><strong>date: deverá ser no formato YYYY-MM-DD</strong>
     </div>
   </details>
@@ -48,24 +67,36 @@ $required_keys = ["title", "permalink", "date", "excerpt", "thumbnail", "content
 
         <div id="progress-wrapper">
             <div id="progressBar" class="hide">
-                0%
             </div>
         </div>
 
         <div id="result" style="margin-top:12px;"></div>
     </form>
 
-    <div id="hash" class="imported">
-    </div>
 
-    <div id="fileLog">
+      <hr>
+      <div id="components">
+        <details id="details-categories"
+      <?php if (isset($_GET['edit_categories']) && $_GET['edit_categories'] == 'true') echo 'open'; ?> 
+      ontoggle="handleToggle(event)">
+          <summary>
+            <h3 style="display: inline-block;">Gerenciar categorias</h3>
+          </summary>
+          <?php require_once plugin_dir_path(dirname(__FILE__)) . 'admin/components/category_clean.php'; ?>
+        </details>
+      </div>
+      <hr>
 
-    </div>
+    <div id="hash" class="imported"></div>
+
+
+    <div id="fileLog"></div>
 
     <div id="imported"></div>
+
 </div>
 
-<script src="<?= plugin_dir_url(dirname(__FILE__)) . 'admin/js/jquery.min.js?cb=' . time(); ?>"></script>
+<script src="<?php echo plugin_dir_url(dirname(__FILE__)) . 'admin/js/jquery.min.js?cb=' . time(); ?>"></script>
 
 <script >
 window.wp_vars = {
@@ -74,6 +105,7 @@ window.wp_vars = {
   restUrl: <?php echo wp_json_encode(home_url('/wp-json/')); ?>,
   restNonce: <?php echo wp_json_encode(wp_create_nonce('wp_rest')); ?>
 };
+
 
 async function loadJsonFile() {
     const formData = new FormData();
@@ -88,15 +120,15 @@ async function loadJsonFile() {
     const newData = await data.clone().json();
 
     const evt = new CustomEvent('FileUploaded', {
-        detail: { 
+        detail: {
           response:  newData,
           wp_vars: window.wp_vars,
-          requiredKeys: <?= json_encode($required_keys); ?>,
+          requiredKeys: <?php echo json_encode($required_keys); ?>,
           ms: document.getElementById('ms').value
         }
     });
     document.dispatchEvent(evt);
-    
+
     return data.json();
 }
 
@@ -132,21 +164,21 @@ async function send_log_to_php(text, data = {}) {
   const { type = 'info', hash = '' } = data || {};
 
   const cleanMessage = typeof text === 'object' ? JSON.stringify(text) : text;
-  
+
   const logData = new FormData();
   logData.append('action', 'remote_save_log');
   logData.append('message', String(cleanMessage).slice(0, 5000));
   logData.append('log_type', type);
   logData.append('hash', hash);
-  
+
   console.log(`Salvando log (${type})...`);
 
   try {
-    const res = await fetch(wp_vars.ajaxUrl, { 
-      method: 'POST', 
-      body: logData 
+    const res = await fetch(wp_vars.ajaxUrl, {
+      method: 'POST',
+      body: logData
     });
-    
+
     if (!res.ok) {
         console.warn(`Servidor respondeu com erro ${res.status} ao tentar salvar o log.`);
     }
@@ -225,4 +257,4 @@ form.addEventListener('submit', function(e) {
 });
 </script>
 
-<script src="<?php echo plugins_url('js/create_post.js', __FILE__); ?>?cb=<?= time(); ?>"></script>
+<script src="<?php echo plugins_url('js/create_post.js', __FILE__); ?>?cb=<?php echo time(); ?>"></script>
