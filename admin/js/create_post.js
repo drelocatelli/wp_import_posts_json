@@ -238,6 +238,11 @@ async function importPosts({ item, wpVars, index, hashValue }) {
     formData.append('hash', hashValue);
 
     if(document.querySelector('#preview').checked) return;
+
+    const categoryElement = document.querySelector('#category_slug');
+    if(categoryElement && categoryElement.value.trim() !== '') {
+      formData.append('category_slug', categoryElement.value.trim());
+    }
     
     const res = await fetch(wpVars.ajaxUrl, {
       method: 'POST',
