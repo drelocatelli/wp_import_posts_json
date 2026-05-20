@@ -61,7 +61,8 @@ add_action('wp_ajax_imp_create_post', function () {
   }
 
   $title   = sanitize_text_field($_POST['title'] ?? '');
-  $content = wp_kses_post($_POST['content'] ?? '');
+  //$content = wp_kses_post($_POST['content'] ?? '');
+  $content = $_POST['content'] ?? '';
   $status  = sanitize_key($_POST['status'] ?? 'draft');
 
   $cat_ids = [];
